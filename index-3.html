@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bright Gears Sync</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            background:#000; color:#fff; font-family:sans-serif;
+            display:flex; flex-direction:column; align-items:center;
+            justify-content:center; min-height:100vh; margin:0;
+            overflow:hidden; touch-action:none;
+        }
+        .gear-train {
+            display:flex; gap:20px; transform:scale(.65);
+            transform-origin:center center; cursor:grab;
+        }
+        .wheel {
+            position:relative; width:450px; height:450px;
+            border-radius:50%; border:15px solid #111;
+            pointer-events:none; flex-shrink:0;
+        }
+        canvas { width:100%; height:100%; border-radius:50%; }
+        .pointer {
+            position:absolute; top:-40px; left:50%;
+            transform:translateX(-50%); width:0; height:0;
+            border-left:20px solid transparent;
+            border-right:20px solid transparent;
+            border-top:40px solid #fff; z-index:10;
+        }
+        .panel {
+            margin-top:20px; text-align:center; background:#0a0a0a;
+            padding:30px; border-radius:20px; width:550px;
+            max-width:90vw; border:1px solid #222;
+        }
+        #b-text { font-size:3.5rem; font-weight:900; text-transform:uppercase; }
+        #m-text { color:#888; margin-top:15px; font-size:1.2rem; }
+
+        @media (max-width:600px) {
+            .gear-train { gap:5px; transform:scale(.30); }
+            .wheel { width:450px; height:450px; }
+            .panel { margin-top:-120px; width:90vw; padding:18px 10px; }
+            #b-text { font-size:2rem; }
+            #m-text { font-size:.85rem; margin-top:8px; }
+        }
+        @media (max-width:380px) {
+            .gear-train { transform:scale(.25); }
+            .panel { margin-top:-150px; }
+            #b-text { font-size:1.7rem; }
+            #m-text { font-size:.75rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="gear-train" id="engine">
+        <div style="position:relative;">
+            <div class="pointer"></div>
+            <div id="L" class="wheel"><canvas id="c1" width="1000" height="1000"></canvas></div>
+        </div>
+        <div style="position:relative;">
+            <div class="pointer"></div>
+            <div id="R" class="wheel"><canvas id="c2" width="1000" height="1000"></canvas></div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div id="b-text">DRAG GEARS</div>
+        <div id="m-text">BRIGHT COLOR PATTERN ACTIVE</div>
+    </div>
+
+    <script>
+        const colors = {
+            1:{name:"MARUTI",hex:"#00aaff",models:["DZIRE","eVITARA","FRONX","BREZZA"]},
+            2:{name:"MAHINDRA",hex:"#ff0000",models:["SCORPIO","THAR","XUV700","3XO"]},
+            3:{name:"TATA",hex:"#ff8c00",models:["NEXON","PUNCH","SIERRA","CURVV"]},
+            4:{name:"HYUNDAI",hex:"#00ffcc",models:["CRETA","EXTER","VENUE","VERNA"]},
+            5:{name:"TOYOTA",hex:"#ff00ff",models:["FORTUNER","HYCROSS","HYRYDER","TAISOR"]}
+        };
+
+        const w1Order=[colors[1],colors[2],colors[3],colors[4],colors[5]];
+        const w2Order=[colors[2],colors[1],colors[5],colors[4],colors[3]];
+        const arc=(Math.PI*2)/5;
+        const ctx1=document.getElementById("c1").getContext("2d");
+        const ctx2=document.getElementById("c2").getContext("2d");
+
+        function draw(){
+            w1Order.forEach((item,i)=>{
+                ctx1.save(); ctx1.translate(500,500); ctx1.rotate(i*arc);
+                ctx1.beginPath(); ctx1.fillStyle=item.hex; ctx1.moveTo(0,0);
+                ctx1.arc(0,0,500,0,arc); ctx1.fill();
+                ctx1.rotate(arc/2); ctx1.fillStyle="white";
+                ctx1.shadowColor="black"; ctx1.shadowBlur=5;
+                ctx1.font="bold 45px sans-serif"; ctx1.textAlign="center";
+                ctx1.fillText(item.name,320,15); ctx1.restore();
+            });
+
+            w2Order.forEach((item,i)=>{
+                const s=i*arc, sub=arc/4;
+                item.models.forEach((m,j)=>{
+                    ctx2.save(); ctx2.translate(500,500); ctx2.rotate(s+(j*sub));
+                    ctx2.beginPath(); ctx2.fillStyle=item.hex; ctx2.moveTo(0,0);
+                    ctx2.arc(0,0,500,0,sub); ctx2.fill();
+                    if(j%2===0){ctx2.fillStyle="rgba(255,255,255,0.2)";ctx2.fill();}
+                    ctx2.rotate(sub/2); ctx2.fillStyle="white";
+                    ctx2.shadowColor="black"; ctx2.shadowBlur=4;
+                    ctx2.font="bold 24px sans-serif"; ctx2.textAlign="center";
+                    ctx2.fillText(m,350,10); ctx2.restore();
+                });
+            });
+        }
+        draw();
+
+        let rot=0, vel=0, dragging=false, lastA=0;
+        const gearL=document.getElementById("L");
+        const gearR=document.getElementById("R");
+
+        function update(){
+            gearL.style.transform=`rotate(${rot}deg)`;
+            gearR.style.transform=`rotate(${-rot+30}deg)`;
+
+            const normL=((rot%360)+360)%360;
+            const idxL=Math.floor(((360-normL+270-36)%360)/72);
+
+            const normR=(((-rot)%360)+360)%360;
+            const idxR=Math.floor(((360-normR+270-36)%360)/72);
+
+            document.getElementById("b-text").innerText=w1Order[idxL].name;
+            document.getElementById("b-text").style.color=w1Order[idxL].hex;
+            document.getElementById("m-text").innerText=w2Order[idxR].models.join(" • ");
+        }
+
+        function getA(e){
+            const r=document.getElementById("engine").getBoundingClientRect();
+            const clientX=e.clientX || (e.touches && e.touches[0].clientX);
+            const clientY=e.clientY || (e.touches && e.touches[0].clientY);
+            const x=clientX-(r.left+r.width/2);
+            const y=clientY-(r.top+r.height/2);
+            return Math.atan2(y,x)*(180/Math.PI);
+        }
+
+        const start=e=>{dragging=true;lastA=getA(e);vel=0;};
+        const move=e=>{
+            if(!dragging)return;
+            let cur=getA(e), diff=cur-lastA;
+            if(diff>180)diff-=360;
+            if(diff<-180)diff+=360;
+            rot+=diff; vel=diff; lastA=cur; update();
+        };
+        const end=()=>{dragging=false;};
+
+        window.addEventListener("mousedown",start);
+        window.addEventListener("mousemove",move);
+        window.addEventListener("mouseup",end);
+        window.addEventListener("touchstart",start,{passive:false});
+        window.addEventListener("touchmove",move,{passive:false});
+        window.addEventListener("touchend",end);
+
+        function loop(){
+            if(!dragging && Math.abs(vel)>0.05){rot+=vel;vel*=0.97;update();}
+            requestAnimationFrame(loop);
+        }
+        loop();
+        update();
+    </script>
+</body>
+</html>
